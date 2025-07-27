@@ -1,0 +1,54 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+env:
+  AZURE_WEBAPP_NAME: vanshaCPQ 
+  AZURE_WEBAPP_PACKAGE_PATH: "./publish"
+
+jobs:
+  publish:
+    name: Deploy to Staging
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '6.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore TestAppMVC.sln
+
+      - name: Build solution
+        run: |
+          pwd
+          ls
+          dotnet build TestAppMVC.sln --configuration Release --no-restore
+          ls
+
+      - name: Run tests
+        run: dotnet test TestAppMVC.sln --no-build --verbosity normal
+
+      - name: Publish
+        run: dotnet publish TestAppMVC.csproj --configuration Release --output ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+
+      - name: Upload published files as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-app
+          path: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_PUBLISH_PROFILE }}
+          package: ${{ env.AZURE_WEBAPP_PACKAGE_PATH }}
